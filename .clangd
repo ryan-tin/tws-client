@@ -1,6 +1,6 @@
 CompileFlags:
     Add: [
       -I/Users/ryantin/Rochefort/dev/TwsClient/include,
-      -I/Users/ryantin/Rochefort/dev/IBJts/source/cppclient/client,
+      # -I/Users/ryantin/Rochefort/dev/IBJts/source/cppclient/client,
       -I/usr/local/include,
     ]

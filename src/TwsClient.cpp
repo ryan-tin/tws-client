@@ -70,12 +70,12 @@ TwsClient::TwsClient(State action)
   while (!this->isConnected() && attempt < MAX_ATTEMPTS) {
     ++attempt;
     printf("Attempt %u of %u\n", attempt, MAX_ATTEMPTS);
-    if (this->connect(host, port, clientId)) {
-      while (this->m_state != ST_HISTORICALDATAREQUESTS_ACK) {
-        // process historical bars while unfinished
-        this->processMessages();
-      }
-    }
+    this->connect(host, port, clientId);
+  }
+
+  while (this->m_state != ST_HISTORICALDATAREQUESTS_ACK) {
+    // process historical bars while unfinished
+    this->processMessages();
   }
   this->disconnect();
 }
@@ -89,8 +89,7 @@ TwsClient::~TwsClient() {
   delete m_pClient;
 }
 
-bool TwsClient::connect(const char *host, int port,
-                                      int clientId) {
+bool TwsClient::connect(const char *host, int port, int clientId) {
   // trying to connect
   printf("Connecting to %s:%d clientId:%d\n",
          !(host && *host) ? "127.0.0.1" : host, port, clientId);
@@ -120,12 +119,9 @@ void TwsClient::disconnect() const {
   printf("Disconnected\n");
 }
 
-bool TwsClient::isConnected() const {
-  return m_pClient->isConnected();
-}
+bool TwsClient::isConnected() const { return m_pClient->isConnected(); }
 
-void TwsClient::setConnectOptions(
-    const std::string &connectOptions) {
+void TwsClient::setConnectOptions(const std::string &connectOptions) {
   m_pClient->setConnectOptions(connectOptions);
 }
 
@@ -695,7 +691,8 @@ void TwsClient::historicalDataRequests() {
   m_pClient->reqHistoricalData(4000, ContractBuilder::UsdHkdFx(), queryTime,
                                "365 D", "1 day", "MIDPOINT", 1, 1, false,
                                TagValueListSPtr());
-  // m_pClient->reqHistoricalData(4001, ContractBuilder::EurGbpFx(), queryTime,
+  m_state = ST_IDLE;
+
   // "1 M", "1 day", "MIDPOINT", 1, 1, false, TagValueListSPtr());
   // m_pClient->reqHistoricalData(4002, ContractBuilder::EuropeanStock(),
   // queryTime, "10 D", "1 min", "TRADES", 1, 1, false, TagValueListSPtr());
@@ -1883,9 +1880,8 @@ void TwsClient::currentTime(long time) {
 }
 
 //! [error]
-void TwsClient::error(
-    int id, int errorCode, const std::string &errorString,
-    const std::string &advancedOrderRejectJson) {
+void TwsClient::error(int id, int errorCode, const std::string &errorString,
+                      const std::string &advancedOrderRejectJson) {
   if (!advancedOrderRejectJson.empty()) {
     printf("Error. Id: %d, Code: %d, Msg: %s, AdvancedOrderRejectJson: %s\n",
            id, errorCode, errorString.c_str(), advancedOrderRejectJson.c_str());
@@ -1897,9 +1893,8 @@ void TwsClient::error(
 //! [error]
 
 //! [tickprice]
-void TwsClient::tickPrice(TickerId tickerId, TickType field,
-                                        double price,
-                                        const TickAttrib &attribs) {
+void TwsClient::tickPrice(TickerId tickerId, TickType field, double price,
+                          const TickAttrib &attribs) {
   printf("Tick Price. Ticker Id: %ld, Field: %d, Price: %s, CanAutoExecute: "
          "%d, PastLimit: %d, PreOpen: %d\n",
          tickerId, (int)field, Utils::doubleMaxString(price).c_str(),
@@ -1908,18 +1903,19 @@ void TwsClient::tickPrice(TickerId tickerId, TickType field,
 //! [tickprice]
 
 //! [ticksize]
-void TwsClient::tickSize(TickerId tickerId, TickType field,
-                                       Decimal size) {
+void TwsClient::tickSize(TickerId tickerId, TickType field, Decimal size) {
   printf("Tick Size. Ticker Id: %ld, Field: %d, Size: %s\n", tickerId,
          (int)field, DecimalFunctions::decimalStringToDisplay(size).c_str());
 }
 //! [ticksize]
 
 //! [tickoptioncomputation]
-void TwsClient::tickOptionComputation(
-    TickerId tickerId, TickType tickType, int tickAttrib, double impliedVol,
-    double delta, double optPrice, double pvDividend, double gamma, double vega,
-    double theta, double undPrice) {
+void TwsClient::tickOptionComputation(TickerId tickerId, TickType tickType,
+                                      int tickAttrib, double impliedVol,
+                                      double delta, double optPrice,
+                                      double pvDividend, double gamma,
+                                      double vega, double theta,
+                                      double undPrice) {
   printf("TickOptionComputation. Ticker Id: %ld, Type: %d, TickAttrib: %s, "
          "ImpliedVolatility: %s, Delta: %s, OptionPrice: %s, pvDividend: %s, "
          "Gamma: %s, Vega: %s, Theta: %s, Underlying Price: %s\n",
@@ -1937,7 +1933,7 @@ void TwsClient::tickOptionComputation(
 
 //! [tickgeneric]
 void TwsClient::tickGeneric(TickerId tickerId, TickType tickType,
-                                          double value) {
+                            double value) {
   printf("Tick Generic. Ticker Id: %ld, Type: %d, Value: %s\n", tickerId,
          (int)tickType, Utils::doubleMaxString(value).c_str());
 }
@@ -1945,19 +1941,19 @@ void TwsClient::tickGeneric(TickerId tickerId, TickType tickType,
 
 //! [tickstring]
 void TwsClient::tickString(TickerId tickerId, TickType tickType,
-                                         const std::string &value) {
+                           const std::string &value) {
   printf("Tick String. Ticker Id: %ld, Type: %d, Value: %s\n", tickerId,
          (int)tickType, value.c_str());
 }
 //! [tickstring]
 
 void TwsClient::tickEFP(TickerId tickerId, TickType tickType,
-                                      double basisPoints,
-                                      const std::string &formattedBasisPoints,
-                                      double totalDividends, int holdDays,
-                                      const std::string &futureLastTradeDate,
-                                      double dividendImpact,
-                                      double dividendsToLastTradeDate) {
+                        double basisPoints,
+                        const std::string &formattedBasisPoints,
+                        double totalDividends, int holdDays,
+                        const std::string &futureLastTradeDate,
+                        double dividendImpact,
+                        double dividendsToLastTradeDate) {
   printf("TickEFP. %ld, Type: %d, BasisPoints: %s, FormattedBasisPoints: %s, "
          "Total Dividends: %s, HoldDays: %s, Future Last Trade Date: %s, "
          "Dividend Impact: %s, Dividends To Last Trade Date: %s\n",
@@ -1970,11 +1966,11 @@ void TwsClient::tickEFP(TickerId tickerId, TickType tickType,
 }
 
 //! [orderstatus]
-void TwsClient::orderStatus(
-    OrderId orderId, const std::string &status, Decimal filled,
-    Decimal remaining, double avgFillPrice, int permId, int parentId,
-    double lastFillPrice, int clientId, const std::string &whyHeld,
-    double mktCapPrice) {
+void TwsClient::orderStatus(OrderId orderId, const std::string &status,
+                            Decimal filled, Decimal remaining,
+                            double avgFillPrice, int permId, int parentId,
+                            double lastFillPrice, int clientId,
+                            const std::string &whyHeld, double mktCapPrice) {
   printf("OrderStatus. Id: %ld, Status: %s, Filled: %s, Remaining: %s, "
          "AvgFillPrice: %s, PermId: %s, LastFillPrice: %s, ClientId: %s, "
          "WhyHeld: %s, MktCapPrice: %s\n",
@@ -1990,10 +1986,8 @@ void TwsClient::orderStatus(
 //! [orderstatus]
 
 //! [openorder]
-void TwsClient::openOrder(OrderId orderId,
-                                        const Contract &contract,
-                                        const Order &order,
-                                        const OrderState &orderState) {
+void TwsClient::openOrder(OrderId orderId, const Contract &contract,
+                          const Order &order, const OrderState &orderState) {
   printf(
       "OpenOrder. PermId: %s, ClientId: %s, OrderId: %s, Account: %s, Symbol: "
       "%s, SecType: %s, Exchange: %s:, Action: %s, OrderType:%s, TotalQty: %s, "
@@ -2031,14 +2025,13 @@ void TwsClient::openOrderEnd() { printf("OpenOrderEnd\n"); }
 //! [openorderend]
 
 void TwsClient::winError(const std::string &str, int lastError) {}
-void TwsClient::connectionClosed() {
-  printf("Connection Closed\n");
-}
+void TwsClient::connectionClosed() { printf("Connection Closed\n"); }
 
 //! [updateaccountvalue]
-void TwsClient::updateAccountValue(
-    const std::string &key, const std::string &val, const std::string &currency,
-    const std::string &accountName) {
+void TwsClient::updateAccountValue(const std::string &key,
+                                   const std::string &val,
+                                   const std::string &currency,
+                                   const std::string &accountName) {
   printf("UpdateAccountValue. Key: %s, Value: %s, Currency: %s, Account Name: "
          "%s\n",
          key.c_str(), val.c_str(), currency.c_str(), accountName.c_str());
@@ -2046,10 +2039,11 @@ void TwsClient::updateAccountValue(
 //! [updateaccountvalue]
 
 //! [updateportfolio]
-void TwsClient::updatePortfolio(
-    const Contract &contract, Decimal position, double marketPrice,
-    double marketValue, double averageCost, double unrealizedPNL,
-    double realizedPNL, const std::string &accountName) {
+void TwsClient::updatePortfolio(const Contract &contract, Decimal position,
+                                double marketPrice, double marketValue,
+                                double averageCost, double unrealizedPNL,
+                                double realizedPNL,
+                                const std::string &accountName) {
   printf("UpdatePortfolio. %s, %s @ %s: Position: %s, MarketPrice: %s, "
          "MarketValue: %s, AverageCost: %s, UnrealizedPNL: %s, RealizedPNL: "
          "%s, AccountName: %s\n",
@@ -2071,15 +2065,14 @@ void TwsClient::updateAccountTime(const std::string &timeStamp) {
 //! [updateaccounttime]
 
 //! [accountdownloadend]
-void TwsClient::accountDownloadEnd(
-    const std::string &accountName) {
+void TwsClient::accountDownloadEnd(const std::string &accountName) {
   printf("Account download finished: %s\n", accountName.c_str());
 }
 //! [accountdownloadend]
 
 //! [contractdetails]
-void TwsClient::contractDetails(
-    int reqId, const ContractDetails &contractDetails) {
+void TwsClient::contractDetails(int reqId,
+                                const ContractDetails &contractDetails) {
   printf("ContractDetails begin. ReqId: %d\n", reqId);
   printContractMsg(contractDetails.contract);
   printContractDetailsMsg(contractDetails);
@@ -2088,8 +2081,8 @@ void TwsClient::contractDetails(
 //! [contractdetails]
 
 //! [bondcontractdetails]
-void TwsClient::bondContractDetails(
-    int reqId, const ContractDetails &contractDetails) {
+void TwsClient::bondContractDetails(int reqId,
+                                    const ContractDetails &contractDetails) {
   printf("BondContractDetails begin. ReqId: %d\n", reqId);
   printBondContractDetailsMsg(contractDetails);
   printf("BondContractDetails end. ReqId: %d\n", reqId);
@@ -2282,7 +2275,7 @@ void TwsClient::contractDetailsEnd(int reqId) {
 
 //! [execdetails]
 void TwsClient::execDetails(int reqId, const Contract &contract,
-                                          const Execution &execution) {
+                            const Execution &execution) {
   printf("ExecDetails. ReqId: %d - %s, %s, %s - %s, %s, %s, %s, %s, %s\n",
          reqId, contract.symbol.c_str(), contract.secType.c_str(),
          contract.currency.c_str(), execution.execId.c_str(),
@@ -2301,9 +2294,8 @@ void TwsClient::execDetailsEnd(int reqId) {
 //! [execdetailsend]
 
 //! [updatemktdepth]
-void TwsClient::updateMktDepth(TickerId id, int position,
-                                             int operation, int side,
-                                             double price, Decimal size) {
+void TwsClient::updateMktDepth(TickerId id, int position, int operation,
+                               int side, double price, Decimal size) {
   printf("UpdateMarketDepth. %ld - Position: %s, Operation: %d, Side: %d, "
          "Price: %s, Size: %s\n",
          id, Utils::intMaxString(position).c_str(), operation, side,
@@ -2314,10 +2306,9 @@ void TwsClient::updateMktDepth(TickerId id, int position,
 
 //! [updatemktdepthl2]
 void TwsClient::updateMktDepthL2(TickerId id, int position,
-                                               const std::string &marketMaker,
-                                               int operation, int side,
-                                               double price, Decimal size,
-                                               bool isSmartDepth) {
+                                 const std::string &marketMaker, int operation,
+                                 int side, double price, Decimal size,
+                                 bool isSmartDepth) {
   printf("UpdateMarketDepthL2. %ld - Position: %s, Operation: %d, Side: %d, "
          "Price: %s, Size: %s, isSmartDepth: %d\n",
          id, Utils::intMaxString(position).c_str(), operation, side,
@@ -2327,9 +2318,9 @@ void TwsClient::updateMktDepthL2(TickerId id, int position,
 //! [updatemktdepthl2]
 
 //! [updatenewsbulletin]
-void TwsClient::updateNewsBulletin(
-    int msgId, int msgType, const std::string &newsMessage,
-    const std::string &originExch) {
+void TwsClient::updateNewsBulletin(int msgId, int msgType,
+                                   const std::string &newsMessage,
+                                   const std::string &originExch) {
   printf("News Bulletins. %d - Type: %d, Message: %s, Exchange of Origin: %s\n",
          msgId, msgType, newsMessage.c_str(), originExch.c_str());
 }
@@ -2342,8 +2333,7 @@ void TwsClient::managedAccounts(const std::string &accountsList) {
 //! [managedaccounts]
 
 //! [receivefa]
-void TwsClient::receiveFA(faDataType pFaDataType,
-                                        const std::string &cxml) {
+void TwsClient::receiveFA(faDataType pFaDataType, const std::string &cxml) {
   std::cout << "Receiving FA: " << (int)pFaDataType << std::endl
             << cxml << std::endl;
 }
@@ -2364,13 +2354,13 @@ void TwsClient::historicalData(TickerId reqId, const Bar &bar) {
 //! [historicaldata]
 
 //! [historicaldataend]
-void TwsClient::historicalDataEnd(int reqId,
-                                                const std::string &startDateStr,
-                                                const std::string &endDateStr) {
+void TwsClient::historicalDataEnd(int reqId, const std::string &startDateStr,
+                                  const std::string &endDateStr) {
   std::cout << "HistoricalDataEnd. ReqId: " << reqId
             << " - Start Date: " << startDateStr << ", End Date: " << endDateStr
             << std::endl;
-  this->m_state = ST_HISTORICALDATAREQUESTS_ACK; // acknowledge end of historical data request
+  this->m_state = ST_HISTORICALDATAREQUESTS_ACK; // acknowledge end of
+                                                 // historical data request
 }
 //! [historicaldataend]
 
@@ -2381,10 +2371,12 @@ void TwsClient::scannerParameters(const std::string &xml) {
 //! [scannerparameters]
 
 //! [scannerdata]
-void TwsClient::scannerData(
-    int reqId, int rank, const ContractDetails &contractDetails,
-    const std::string &distance, const std::string &benchmark,
-    const std::string &projection, const std::string &legsStr) {
+void TwsClient::scannerData(int reqId, int rank,
+                            const ContractDetails &contractDetails,
+                            const std::string &distance,
+                            const std::string &benchmark,
+                            const std::string &projection,
+                            const std::string &legsStr) {
   printf("ScannerData. %d - Rank: %d, Symbol: %s, SecType: %s, Currency: %s, "
          "Distance: %s, Benchmark: %s, Projection: %s, Legs String: %s\n",
          reqId, rank, contractDetails.contract.symbol.c_str(),
@@ -2401,10 +2393,9 @@ void TwsClient::scannerDataEnd(int reqId) {
 //! [scannerdataend]
 
 //! [realtimebar]
-void TwsClient::realtimeBar(TickerId reqId, long time,
-                                          double open, double high, double low,
-                                          double close, Decimal volume,
-                                          Decimal wap, int count) {
+void TwsClient::realtimeBar(TickerId reqId, long time, double open, double high,
+                            double low, double close, Decimal volume,
+                            Decimal wap, int count) {
   printf("RealTimeBars. %ld - Time: %s, Open: %s, High: %s, Low: %s, Close: "
          "%s, Volume: %s, Count: %s, WAP: %s\n",
          reqId, Utils::longMaxString(time).c_str(),
@@ -2419,8 +2410,7 @@ void TwsClient::realtimeBar(TickerId reqId, long time,
 //! [realtimebar]
 
 //! [fundamentaldata]
-void TwsClient::fundamentalData(TickerId reqId,
-                                              const std::string &data) {
+void TwsClient::fundamentalData(TickerId reqId, const std::string &data) {
   printf("FundamentalData. ReqId: %ld, %s\n", reqId, data.c_str());
 }
 //! [fundamentaldata]
@@ -2440,15 +2430,13 @@ void TwsClient::tickSnapshotEnd(int reqId) {
 //! [ticksnapshotend]
 
 //! [marketdatatype]
-void TwsClient::marketDataType(TickerId reqId,
-                                             int marketDataType) {
+void TwsClient::marketDataType(TickerId reqId, int marketDataType) {
   printf("MarketDataType. ReqId: %ld, Type: %d\n", reqId, marketDataType);
 }
 //! [marketdatatype]
 
 //! [commissionreport]
-void TwsClient::commissionReport(
-    const CommissionReport &commissionReport) {
+void TwsClient::commissionReport(const CommissionReport &commissionReport) {
   printf("CommissionReport. %s - %s %s RPNL %s\n",
          commissionReport.execId.c_str(),
          Utils::doubleMaxString(commissionReport.commission).c_str(),
@@ -2458,9 +2446,8 @@ void TwsClient::commissionReport(
 //! [commissionreport]
 
 //! [position]
-void TwsClient::position(const std::string &account,
-                                       const Contract &contract,
-                                       Decimal position, double avgCost) {
+void TwsClient::position(const std::string &account, const Contract &contract,
+                         Decimal position, double avgCost) {
   printf("Position. %s - Symbol: %s, SecType: %s, Currency: %s, Position: %s, "
          "Avg Cost: %s\n",
          account.c_str(), contract.symbol.c_str(), contract.secType.c_str(),
@@ -2475,11 +2462,9 @@ void TwsClient::positionEnd() { printf("PositionEnd\n"); }
 //! [positionend]
 
 //! [accountsummary]
-void TwsClient::accountSummary(int reqId,
-                                             const std::string &account,
-                                             const std::string &tag,
-                                             const std::string &value,
-                                             const std::string &currency) {
+void TwsClient::accountSummary(int reqId, const std::string &account,
+                               const std::string &tag, const std::string &value,
+                               const std::string &currency) {
   printf("Acct Summary. ReqId: %d, Account: %s, Tag: %s, Value: %s, Currency: "
          "%s\n",
          reqId, account.c_str(), tag.c_str(), value.c_str(), currency.c_str());
@@ -2497,19 +2482,19 @@ void TwsClient::verifyMessageAPI(const std::string &apiData) {
 }
 
 void TwsClient::verifyCompleted(bool isSuccessful,
-                                              const std::string &errorText) {
+                                const std::string &errorText) {
   printf("verifyCompleted. IsSuccessfule: %d - Error: %s\n", isSuccessful,
          errorText.c_str());
 }
 
-void TwsClient::verifyAndAuthMessageAPI(
-    const std::string &apiDatai, const std::string &xyzChallenge) {
+void TwsClient::verifyAndAuthMessageAPI(const std::string &apiDatai,
+                                        const std::string &xyzChallenge) {
   printf("verifyAndAuthMessageAPI: %s %s\n", apiDatai.c_str(),
          xyzChallenge.c_str());
 }
 
-void TwsClient::verifyAndAuthCompleted(
-    bool isSuccessful, const std::string &errorText) {
+void TwsClient::verifyAndAuthCompleted(bool isSuccessful,
+                                       const std::string &errorText) {
   printf("verifyAndAuthCompleted. IsSuccessful: %d - Error: %s\n", isSuccessful,
          errorText.c_str());
   if (isSuccessful)
@@ -2517,26 +2502,24 @@ void TwsClient::verifyAndAuthCompleted(
 }
 
 //! [displaygrouplist]
-void TwsClient::displayGroupList(int reqId,
-                                               const std::string &groups) {
+void TwsClient::displayGroupList(int reqId, const std::string &groups) {
   printf("Display Group List. ReqId: %d, Groups: %s\n", reqId, groups.c_str());
 }
 //! [displaygrouplist]
 
 //! [displaygroupupdated]
-void TwsClient::displayGroupUpdated(
-    int reqId, const std::string &contractInfo) {
+void TwsClient::displayGroupUpdated(int reqId,
+                                    const std::string &contractInfo) {
   std::cout << "Display Group Updated. ReqId: " << reqId
             << ", Contract Info: " << contractInfo << std::endl;
 }
 //! [displaygroupupdated]
 
 //! [positionmulti]
-void TwsClient::positionMulti(int reqId,
-                                            const std::string &account,
-                                            const std::string &modelCode,
-                                            const Contract &contract,
-                                            Decimal pos, double avgCost) {
+void TwsClient::positionMulti(int reqId, const std::string &account,
+                              const std::string &modelCode,
+                              const Contract &contract, Decimal pos,
+                              double avgCost) {
   printf("Position Multi. Request: %d, Account: %s, ModelCode: %s, Symbol: %s, "
          "SecType: %s, Currency: %s, Position: %s, Avg Cost: %s\n",
          reqId, account.c_str(), modelCode.c_str(), contract.symbol.c_str(),
@@ -2553,12 +2536,11 @@ void TwsClient::positionMultiEnd(int reqId) {
 //! [positionmultiend]
 
 //! [accountupdatemulti]
-void TwsClient::accountUpdateMulti(int reqId,
-                                                 const std::string &account,
-                                                 const std::string &modelCode,
-                                                 const std::string &key,
-                                                 const std::string &value,
-                                                 const std::string &currency) {
+void TwsClient::accountUpdateMulti(int reqId, const std::string &account,
+                                   const std::string &modelCode,
+                                   const std::string &key,
+                                   const std::string &value,
+                                   const std::string &currency) {
   printf("AccountUpdate Multi. Request: %d, Account: %s, ModelCode: %s, Key, "
          "%s, Value: %s, Currency: %s\n",
          reqId, account.c_str(), modelCode.c_str(), key.c_str(), value.c_str(),
@@ -2584,15 +2566,14 @@ void TwsClient::securityDefinitionOptionalParameter(
 //! [securityDefinitionOptionParameter]
 
 //! [securityDefinitionOptionParameterEnd]
-void TwsClient::securityDefinitionOptionalParameterEnd(
-    int reqId) {
+void TwsClient::securityDefinitionOptionalParameterEnd(int reqId) {
   printf("Security Definition Optional Parameter End. Request: %d\n", reqId);
 }
 //! [securityDefinitionOptionParameterEnd]
 
 //! [softDollarTiers]
-void TwsClient::softDollarTiers(
-    int reqId, const std::vector<SoftDollarTier> &tiers) {
+void TwsClient::softDollarTiers(int reqId,
+                                const std::vector<SoftDollarTier> &tiers) {
   printf("Soft dollar tiers (%lu):", tiers.size());
 
   for (unsigned int i = 0; i < tiers.size(); i++) {
@@ -2602,8 +2583,7 @@ void TwsClient::softDollarTiers(
 //! [softDollarTiers]
 
 //! [familyCodes]
-void TwsClient::familyCodes(
-    const std::vector<FamilyCode> &familyCodes) {
+void TwsClient::familyCodes(const std::vector<FamilyCode> &familyCodes) {
   printf("Family codes (%lu):\n", familyCodes.size());
 
   for (unsigned int i = 0; i < familyCodes.size(); i++) {
@@ -2658,10 +2638,10 @@ void TwsClient::mktDepthExchanges(
 
 //! [tickNews]
 void TwsClient::tickNews(int tickerId, time_t timeStamp,
-                                       const std::string &providerCode,
-                                       const std::string &articleId,
-                                       const std::string &headline,
-                                       const std::string &extraData) {
+                         const std::string &providerCode,
+                         const std::string &articleId,
+                         const std::string &headline,
+                         const std::string &extraData) {
   char timeStampStr[80];
 #if defined(IB_WIN32)
   ctime_s(timeStampStr, sizeof(timeStampStr), &(timeStamp /= 1000));
@@ -2676,8 +2656,7 @@ void TwsClient::tickNews(int tickerId, time_t timeStamp,
 //! [tickNews]
 
 //! [smartcomponents]]
-void TwsClient::smartComponents(
-    int reqId, const SmartComponentsMap &theMap) {
+void TwsClient::smartComponents(int reqId, const SmartComponentsMap &theMap) {
   printf("Smart components: (%lu):\n", theMap.size());
 
   for (SmartComponentsMap::const_iterator i = theMap.begin(); i != theMap.end();
@@ -2690,8 +2669,8 @@ void TwsClient::smartComponents(
 
 //! [tickReqParams]
 void TwsClient::tickReqParams(int tickerId, double minTick,
-                                            const std::string &bboExchange,
-                                            int snapshotPermissions) {
+                              const std::string &bboExchange,
+                              int snapshotPermissions) {
   printf(
       "tickerId: %d, minTick: %s, bboExchange: %s, snapshotPermissions: %u\n",
       tickerId, Utils::doubleMaxString(minTick).c_str(), bboExchange.c_str(),
@@ -2702,8 +2681,7 @@ void TwsClient::tickReqParams(int tickerId, double minTick,
 //! [tickReqParams]
 
 //! [newsProviders]
-void TwsClient::newsProviders(
-    const std::vector<NewsProvider> &newsProviders) {
+void TwsClient::newsProviders(const std::vector<NewsProvider> &newsProviders) {
   printf("News providers (%lu):\n", newsProviders.size());
 
   for (unsigned int i = 0; i < newsProviders.size(); i++) {
@@ -2716,7 +2694,7 @@ void TwsClient::newsProviders(
 
 //! [newsArticle]
 void TwsClient::newsArticle(int requestId, int articleType,
-                                          const std::string &articleText) {
+                            const std::string &articleText) {
   printf("News Article. Request Id: %d, Article Type: %d\n", requestId,
          articleType);
   if (articleType == 0) {
@@ -2744,11 +2722,10 @@ void TwsClient::newsArticle(int requestId, int articleType,
 //! [newsArticle]
 
 //! [historicalNews]
-void TwsClient::historicalNews(int requestId,
-                                             const std::string &time,
-                                             const std::string &providerCode,
-                                             const std::string &articleId,
-                                             const std::string &headline) {
+void TwsClient::historicalNews(int requestId, const std::string &time,
+                               const std::string &providerCode,
+                               const std::string &articleId,
+                               const std::string &headline) {
   printf("Historical News. RequestId: %d, Time: %s, ProviderCode: %s, "
          "ArticleId: %s, Headline: %s\n",
          requestId, time.c_str(), providerCode.c_str(), articleId.c_str(),
@@ -2764,16 +2741,14 @@ void TwsClient::historicalNewsEnd(int requestId, bool hasMore) {
 //! [historicalNewsEnd]
 
 //! [headTimestamp]
-void TwsClient::headTimestamp(int reqId,
-                                            const std::string &headTimestamp) {
+void TwsClient::headTimestamp(int reqId, const std::string &headTimestamp) {
   printf("Head time stamp. ReqId: %d - Head time stamp: %s,\n", reqId,
          headTimestamp.c_str());
 }
 //! [headTimestamp]
 
 //! [histogramData]
-void TwsClient::histogramData(int reqId,
-                                            const HistogramDataVector &data) {
+void TwsClient::histogramData(int reqId, const HistogramDataVector &data) {
   printf("Histogram. ReqId: %d, data length: %lu\n", reqId, data.size());
 
   for (const HistogramEntry &entry : data) {
@@ -2785,8 +2760,7 @@ void TwsClient::histogramData(int reqId,
 //! [histogramData]
 
 //! [historicalDataUpdate]
-void TwsClient::historicalDataUpdate(TickerId reqId,
-                                                   const Bar &bar) {
+void TwsClient::historicalDataUpdate(TickerId reqId, const Bar &bar) {
   printf("HistoricalDataUpdate. ReqId: %ld - Date: %s, Open: %s, High: %s, "
          "Low: %s, Close: %s, Volume: %s, Count: %s, WAP: %s\n",
          reqId, bar.time.c_str(), Utils::doubleMaxString(bar.open).c_str(),
@@ -2801,7 +2775,7 @@ void TwsClient::historicalDataUpdate(TickerId reqId,
 
 //! [rerouteMktDataReq]
 void TwsClient::rerouteMktDataReq(int reqId, int conid,
-                                                const std::string &exchange) {
+                                  const std::string &exchange) {
   printf("Re-route market data request. ReqId: %d, ConId: %d, Exchange: %s\n",
          reqId, conid, exchange.c_str());
 }
@@ -2809,15 +2783,15 @@ void TwsClient::rerouteMktDataReq(int reqId, int conid,
 
 //! [rerouteMktDepthReq]
 void TwsClient::rerouteMktDepthReq(int reqId, int conid,
-                                                 const std::string &exchange) {
+                                   const std::string &exchange) {
   printf("Re-route market depth request. ReqId: %d, ConId: %d, Exchange: %s\n",
          reqId, conid, exchange.c_str());
 }
 //! [rerouteMktDepthReq]
 
 //! [marketRule]
-void TwsClient::marketRule(
-    int marketRuleId, const std::vector<PriceIncrement> &priceIncrements) {
+void TwsClient::marketRule(int marketRuleId,
+                           const std::vector<PriceIncrement> &priceIncrements) {
   printf("Market Rule Id: %s\n", Utils::intMaxString(marketRuleId).c_str());
   for (unsigned int i = 0; i < priceIncrements.size(); i++) {
     printf("Low Edge: %s, Increment: %s\n",
@@ -2828,8 +2802,8 @@ void TwsClient::marketRule(
 //! [marketRule]
 
 //! [pnl]
-void TwsClient::pnl(int reqId, double dailyPnL,
-                                  double unrealizedPnL, double realizedPnL) {
+void TwsClient::pnl(int reqId, double dailyPnL, double unrealizedPnL,
+                    double realizedPnL) {
   printf(
       "PnL. ReqId: %d, daily PnL: %s, unrealized PnL: %s, realized PnL: %s\n",
       reqId, Utils::doubleMaxString(dailyPnL).c_str(),
@@ -2840,8 +2814,8 @@ void TwsClient::pnl(int reqId, double dailyPnL,
 
 //! [pnlsingle]
 void TwsClient::pnlSingle(int reqId, Decimal pos, double dailyPnL,
-                                        double unrealizedPnL,
-                                        double realizedPnL, double value) {
+                          double unrealizedPnL, double realizedPnL,
+                          double value) {
   printf("PnL Single. ReqId: %d, pos: %s, daily PnL: %s, unrealized PnL: %s, "
          "realized PnL: %s, value: %s\n",
          reqId, DecimalFunctions::decimalStringToDisplay(pos).c_str(),
@@ -2853,8 +2827,9 @@ void TwsClient::pnlSingle(int reqId, Decimal pos, double dailyPnL,
 //! [pnlsingle]
 
 //! [historicalticks]
-void TwsClient::historicalTicks(
-    int reqId, const std::vector<HistoricalTick> &ticks, bool done) {
+void TwsClient::historicalTicks(int reqId,
+                                const std::vector<HistoricalTick> &ticks,
+                                bool done) {
   for (const HistoricalTick &tick : ticks) {
     std::time_t t = tick.time;
     char timeStr[80];
@@ -2923,10 +2898,11 @@ void TwsClient::historicalTicksLast(
 //! [historicaltickslast]
 
 //! [tickbytickalllast]
-void TwsClient::tickByTickAllLast(
-    int reqId, int tickType, time_t time, double price, Decimal size,
-    const TickAttribLast &tickAttribLast, const std::string &exchange,
-    const std::string &specialConditions) {
+void TwsClient::tickByTickAllLast(int reqId, int tickType, time_t time,
+                                  double price, Decimal size,
+                                  const TickAttribLast &tickAttribLast,
+                                  const std::string &exchange,
+                                  const std::string &specialConditions) {
   char timeStr[80];
 #if defined(IB_WIN32)
   ctime_s(timeStr, sizeof(timeStr), &time);
@@ -2945,9 +2921,10 @@ void TwsClient::tickByTickAllLast(
 //! [tickbytickalllast]
 
 //! [tickbytickbidask]
-void TwsClient::tickByTickBidAsk(
-    int reqId, time_t time, double bidPrice, double askPrice, Decimal bidSize,
-    Decimal askSize, const TickAttribBidAsk &tickAttribBidAsk) {
+void TwsClient::tickByTickBidAsk(int reqId, time_t time, double bidPrice,
+                                 double askPrice, Decimal bidSize,
+                                 Decimal askSize,
+                                 const TickAttribBidAsk &tickAttribBidAsk) {
   char timeStr[80];
 #if defined(IB_WIN32)
   ctime_s(timeStr, sizeof(timeStr), &time);
@@ -2966,8 +2943,7 @@ void TwsClient::tickByTickBidAsk(
 //! [tickbytickbidask]
 
 //! [tickbytickmidpoint]
-void TwsClient::tickByTickMidPoint(int reqId, time_t time,
-                                                 double midPoint) {
+void TwsClient::tickByTickMidPoint(int reqId, time_t time, double midPoint) {
   char timeStr[80];
 #if defined(IB_WIN32)
   ctime_s(timeStr, sizeof(timeStr), &time);
@@ -2981,8 +2957,7 @@ void TwsClient::tickByTickMidPoint(int reqId, time_t time,
 //! [tickbytickmidpoint]
 
 //! [orderbound]
-void TwsClient::orderBound(long long orderId, int apiClientId,
-                                         int apiOrderId) {
+void TwsClient::orderBound(long long orderId, int apiClientId, int apiOrderId) {
   printf("Order bound. OrderId: %s, ApiClientId: %s, ApiOrderId: %s\n",
          Utils::llongMaxString(orderId).c_str(),
          Utils::intMaxString(apiClientId).c_str(),
@@ -2991,9 +2966,8 @@ void TwsClient::orderBound(long long orderId, int apiClientId,
 //! [orderbound]
 
 //! [completedorder]
-void TwsClient::completedOrder(const Contract &contract,
-                                             const Order &order,
-                                             const OrderState &orderState) {
+void TwsClient::completedOrder(const Contract &contract, const Order &order,
+                               const OrderState &orderState) {
   printf(
       "CompletedOrder. PermId: %s, ParentPermId: %s, Account: %s, Symbol: %s, "
       "SecType: %s, Exchange: %s:, Action: %s, OrderType: %s, TotalQty: %s, "
@@ -3026,9 +3000,7 @@ void TwsClient::completedOrder(const Contract &contract,
 //! [completedorder]
 
 //! [completedordersend]
-void TwsClient::completedOrdersEnd() {
-  printf("CompletedOrdersEnd\n");
-}
+void TwsClient::completedOrdersEnd() { printf("CompletedOrdersEnd\n"); }
 //! [completedordersend]
 
 //! [replacefaend]
@@ -3038,15 +3010,13 @@ void TwsClient::replaceFAEnd(int reqId, const std::string &text) {
 //! [replacefaend]
 
 //! [wshMetaData]
-void TwsClient::wshMetaData(int reqId,
-                                          const std::string &dataJson) {
+void TwsClient::wshMetaData(int reqId, const std::string &dataJson) {
   printf("WSH Meta Data. ReqId: %d, dataJson: %s\n", reqId, dataJson.c_str());
 }
 //! [wshMetaData]
 
 //! [wshEventData]
-void TwsClient::wshEventData(int reqId,
-                                           const std::string &dataJson) {
+void TwsClient::wshEventData(int reqId, const std::string &dataJson) {
   printf("WSH Event Data. ReqId: %d, dataJson: %s\n", reqId, dataJson.c_str());
 }
 //! [wshEventData]
@@ -3067,8 +3037,7 @@ void TwsClient::historicalSchedule(
 //! [historicalSchedule]
 
 //! [userInfo]
-void TwsClient::userInfo(int reqId,
-                                       const std::string &whiteBrandingId) {
+void TwsClient::userInfo(int reqId, const std::string &whiteBrandingId) {
   printf("User Info. ReqId: %d, WhiteBrandingId: %s\n", reqId,
          whiteBrandingId.c_str());
 }

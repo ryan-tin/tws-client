@@ -189,10 +189,7 @@ private:
   EReaderOSSignal m_osSignal;
   EClientSocket *const m_pClient;
   //! [socket_declare]
-
-// public: // NOTE: made this public... otherwise how else would it be possible to call request functions?
   State m_state;
-private:
   time_t m_sleepDeadline;
 
   OrderId m_orderId;
